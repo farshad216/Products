@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sniper 1v1</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #111; color: #eee; font: 15px system-ui, sans-serif; overflow: hidden; }
+  canvas { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+  #menu { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 2; }
+  #menu[hidden] { display: none; }
+  #panel { width: 240px; padding: 18px; background: rgba(0,0,0,.78); }
+  h1 { font-size: 20px; margin: 0 0 12px; font-weight: 600; }
+  button, input { font: inherit; width: 100%; box-sizing: border-box; margin: 6px 0; padding: 8px; }
+  #status { min-height: 1.2em; margin: 8px 0 0; font-size: 13px; }
+  #hud { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+  #bar { display: flex; justify-content: space-between; gap: 12px; padding: 10px 14px; background: rgba(0,0,0,.45); }
+  #xhair { position: fixed; left: 50%; top: 50%; width: 0; height: 0; }
+  #xhair::before, #xhair::after { content: ""; position: absolute; background: #fff; }
+  #xhair::before { width: 10px; height: 2px; left: -5px; top: -1px; }
+  #xhair::after { width: 2px; height: 10px; left: -1px; top: -5px; }
+  #scope { position: fixed; left: 50%; top: 50%; width: 62vmin; height: 62vmin; transform: translate(-50%,-50%); border: 2px solid #ddd; border-radius: 50%; box-shadow: 0 0 0 100vmax rgba(0,0,0,.55); }
+  #end { position: fixed; left: 50%; top: 42%; transform: translate(-50%,-50%); font-size: 56px; letter-spacing: 1px; }
+</style>
+</head>
+<body>
+<canvas id="view"></canvas>
+<div id="menu">
+  <div id="panel">
+    <h1>Sniper 1v1</h1>
+    <button id="host" type="button">Host Game</button>
+    <input id="code" maxlength="4" placeholder="Room code" autocomplete="off" spellcheck="false">
+    <button id="join" type="button">Join Game</button>
+    <p id="status"></p>
+  </div>
+</div>
+<div id="hud" hidden>
+  <div id="bar">
+    <span id="hp">HP 100</span>
+    <span id="ammo">5/5</span>
+    <span id="score">You 0 / Opp 0</span>
+    <span id="time">5:00</span>
+  </div>
+  <div id="xhair"></div>
+  <div id="scope" hidden></div>
+  <div id="end" hidden></div>
+</div>
+<script src="game.js"></script>
+</body>
+</html>
