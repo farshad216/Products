@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import LandingPage from './components/LandingPage'
 import SubmissionForm from './components/SubmissionForm'
 import QRCodeDisplay from './components/QRCodeDisplay'
 import LanguageToggle from './components/LanguageToggle'
@@ -8,6 +9,7 @@ import LanguageToggle from './components/LanguageToggle'
 export default function Home() {
   const [language, setLanguage] = useState<'ja' | 'en'>('ja')
   const [showQR, setShowQR] = useState(false)
+  const [showForm, setShowForm] = useState(false)
 
   const translations = {
     ja: {
@@ -27,6 +29,10 @@ export default function Home() {
   }
 
   const t = translations[language]
+
+  if (!showForm) {
+    return <LandingPage language={language} onStart={() => setShowForm(true)} />
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50 to-slate-100">

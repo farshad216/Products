@@ -14,7 +14,7 @@ export default function SubmissionForm({ language }: SubmissionFormProps) {
     itemCategory: '',
     description: '',
     address: '',
-    photo: null as File | null
+    photos: [] as File[]
   })
   
   const [submitting, setSubmitting] = useState(false)
@@ -45,8 +45,10 @@ export default function SubmissionForm({ language }: SubmissionFormProps) {
       address: '住所・回収場所',
       addressPlaceholder: '埼玉県川島町...',
       photo: '写真（任意）',
-      photoButton: '写真を選択',
-      noFile: 'ファイルが選択されていません',
+      photoButton: '写真を追加',
+      noFile: '写真が選択されていません',
+      photosSelected: '枚の写真',
+      removePhoto: '削除',
       submit: '送信',
       submitting: '送信中...',
       successTitle: '送信完了！',
@@ -77,9 +79,11 @@ export default function SubmissionForm({ language }: SubmissionFormProps) {
       descriptionPlaceholder: 'Please describe the items you want picked up (type, quantity, condition, etc.)',
       address: 'Address / Pickup Location',
       addressPlaceholder: 'Kawajima, Saitama...',
-      photo: 'Photo (Optional)',
-      photoButton: 'Choose Photo',
-      noFile: 'No file selected',
+      photo: 'Photos (Optional)',
+      photoButton: 'Add Photos',
+      noFile: 'No photos selected',
+      photosSelected: 'photos',
+      removePhoto: 'Remove',
       submit: 'Submit',
       submitting: 'Submitting...',
       successTitle: 'Submission Complete!',
@@ -107,9 +111,9 @@ export default function SubmissionForm({ language }: SubmissionFormProps) {
       formDataToSend.append('address', formData.address)
       formDataToSend.append('language', language)
       
-      if (formData.photo) {
-        formDataToSend.append('photo', formData.photo)
-      }
+      formData.photos.forEach((photo, index) => {
+        formDataToSend.append(`photo${index}`, photo)
+      })
 
       const response = await fetch('/api/submit', {
         method: 'POST',
@@ -128,7 +132,7 @@ export default function SubmissionForm({ language }: SubmissionFormProps) {
         itemCategory: '',
         description: '',
         address: '',
-        photo: null
+        photos: []
       })
     } catch (err) {
       setError(t.errorMessage)
@@ -268,23 +272,56 @@ export default function SubmissionForm({ language }: SubmissionFormProps) {
 
         {/* Photo Upload */}
         <div>
-          <label htmlFor="photo" className="block text-sm font-semibold text-gray-700 mb-2">
+          <label htmlFor="photos" className="block text-sm font-semibold text-gray-700 mb-2">
             {t.photo}
           </label>
-          <div className="flex items-center gap-3">
-            <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition font-medium">
+          <div className="space-y-3">
+            <label className="cursor-pointer bg-gray-100 hover:bg-gray-200 text-gray-700 px-4 py-2 rounded-lg transition font-medium inline-block">
               {t.photoButton}
               <input
                 type="file"
-                id="photo"
+                id="photos"
                 accept="image/*"
-                onChange={(e) => setFormData({ ...formData, photo: e.target.files?.[0] || null })}
+                multiple
+                onChange={(e) => {
+                  if (e.target.files) {
+                    const newPhotos = Array.from(e.target.files)
+                    setFormData({ ...formData, photos: [...formData.photos, ...newPhotos] })
+                  }
+                }}
                 className="hidden"
               />
             </label>
-            <span className="text-sm text-gray-500">
-              {formData.photo ? formData.photo.name : t.noFile}
-            </span>
+            {formData.photos.length === 0 ? (
+              <p className="text-sm text-gray-500">{t.noFile}</p>
+            ) : (
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600">
+                  {formData.photos.length} {t.photosSelected}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {formData.photos.map((photo, index) => (
+                    <div key={index} className="relative group">
+                      <div className="bg-gray-50 border border-gray-200 rounded-lg p-2 flex items-center justify-between">
+                        <span className="text-xs text-gray-600 truncate flex-1">
+                          {photo.name}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newPhotos = formData.photos.filter((_, i) => i !== index)
+                            setFormData({ ...formData, photos: newPhotos })
+                          }}
+                          className="ml-2 text-red-500 hover:text-red-700 text-xs font-medium"
+                        >
+                          {t.removePhoto}
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

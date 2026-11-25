@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import nodemailer from 'nodemailer'
+import { Resend } from 'resend'
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,7 +14,6 @@ export async function POST(request: NextRequest) {
     const description = formData.get('description') as string
     const address = formData.get('address') as string
     const language = formData.get('language') as string
-    const photo = formData.get('photo') as File | null
 
     // Validate required fields
     if (!name || !phone || !email || !itemCategory || !description || !address) {
@@ -22,17 +23,16 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create email transporter (using Gmail SMTP as a fallback)
-    // Note: For production, you should use environment variables for credentials
-    const transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: {
-        user: process.env.EMAIL_USER || 'noreply@skypersia.com',
-        pass: process.env.EMAIL_PASS || 'your-app-password'
+    // Collect photos
+    const photos: File[] = []
+    let photoIndex = 0
+    while (formData.has(`photo${photoIndex}`)) {
+      const photo = formData.get(`photo${photoIndex}`) as File
+      if (photo && photo.size > 0) {
+        photos.push(photo)
       }
-    })
+      photoIndex++
+    }
 
     // Category translations
     const categoryTranslations: { [key: string]: { ja: string, en: string } } = {
@@ -47,116 +47,180 @@ export async function POST(request: NextRequest) {
 
     const categoryLabel = categoryTranslations[itemCategory]?.[language as 'ja' | 'en'] || itemCategory
 
-    // Prepare email content
+    // Prepare email subject
     const emailSubject = language === 'ja' 
       ? `【新規回収依頼】${name}様 - ${categoryLabel}`
       : `[New Pickup Request] ${name} - ${categoryLabel}`
 
-    const emailBody = language === 'ja' ? `
-新しい回収依頼が届きました
-
-━━━━━━━━━━━━━━━━━━━━
-お客様情報
-━━━━━━━━━━━━━━━━━━━━
-
-お名前：${name}
-電話番号：${phone}
-メールアドレス：${email}
-住所：${address}
-
-━━━━━━━━━━━━━━━━━━━━
-品目情報
-━━━━━━━━━━━━━━━━━━━━
-
-品目カテゴリー：${categoryLabel}
-
-詳細説明：
-${description}
-
-${photo ? '※ 写真が添付されています' : '※ 写真の添付なし'}
-
-━━━━━━━━━━━━━━━━━━━━
-
-このメールは自動送信されています。
-お客様への連絡をお願いいたします。
-
-Sky Persia リサイクル回収システム
+    // Prepare email HTML content
+    const emailHtml = language === 'ja' ? `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Hiragino Sans', 'Yu Gothic', sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #0ea5e9 0%, #1e40af 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+    .content { background: #f8f9fa; padding: 20px; border: 1px solid #e5e7eb; }
+    .section { background: white; padding: 15px; margin-bottom: 15px; border-radius: 6px; border-left: 4px solid #0ea5e9; }
+    .label { font-weight: bold; color: #0ea5e9; margin-bottom: 5px; }
+    .value { color: #374151; }
+    .footer { background: #374151; color: white; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2 style="margin: 0;">🔔 新規回収依頼</h2>
+      <p style="margin: 5px 0 0 0; opacity: 0.9;">Sky Persia リサイクル回収システム</p>
+    </div>
+    <div class="content">
+      <div class="section">
+        <h3 style="margin-top: 0; color: #0ea5e9;">👤 お客様情報</h3>
+        <div class="label">お名前</div>
+        <div class="value">${name}</div>
+        <div class="label" style="margin-top: 10px;">電話番号</div>
+        <div class="value">${phone}</div>
+        <div class="label" style="margin-top: 10px;">メールアドレス</div>
+        <div class="value">${email}</div>
+        <div class="label" style="margin-top: 10px;">住所</div>
+        <div class="value">${address}</div>
+      </div>
+      
+      <div class="section">
+        <h3 style="margin-top: 0; color: #0ea5e9;">📦 品目情報</h3>
+        <div class="label">品目カテゴリー</div>
+        <div class="value">${categoryLabel}</div>
+        <div class="label" style="margin-top: 10px;">詳細説明</div>
+        <div class="value" style="white-space: pre-wrap;">${description}</div>
+        <div style="margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 4px; color: #92400e;">
+          ${photos.length > 0 ? `📷 写真 ${photos.length} 枚が添付されています` : '📷 写真の添付なし'}
+        </div>
+      </div>
+      
+      <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin-top: 15px;">
+        <strong>⏰ 次のステップ:</strong><br>
+        営業時間内にお客様へご連絡をお願いいたします。
+      </div>
+    </div>
+    <div class="footer">
+      このメールは自動送信されています<br>
+      Sky Persia - 埼玉県比企郡川島町下八ツ林731-1<br>
+      📞 049-297-1355 / 070-9151-1212
+    </div>
+  </div>
+</body>
+</html>
     ` : `
-New pickup request received
-
-━━━━━━━━━━━━━━━━━━━━
-Customer Information
-━━━━━━━━━━━━━━━━━━━━
-
-Name: ${name}
-Phone: ${phone}
-Email: ${email}
-Address: ${address}
-
-━━━━━━━━━━━━━━━━━━━━
-Item Information
-━━━━━━━━━━━━━━━━━━━━
-
-Item Category: ${categoryLabel}
-
-Description:
-${description}
-
-${photo ? '※ Photo attached' : '※ No photo attached'}
-
-━━━━━━━━━━━━━━━━━━━━
-
-This is an automated message.
-Please contact the customer.
-
-Sky Persia Recycling System
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>
+    body { font-family: 'Arial', sans-serif; line-height: 1.6; color: #333; }
+    .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+    .header { background: linear-gradient(135deg, #0ea5e9 0%, #1e40af 100%); color: white; padding: 20px; border-radius: 8px 8px 0 0; }
+    .content { background: #f8f9fa; padding: 20px; border: 1px solid #e5e7eb; }
+    .section { background: white; padding: 15px; margin-bottom: 15px; border-radius: 6px; border-left: 4px solid #0ea5e9; }
+    .label { font-weight: bold; color: #0ea5e9; margin-bottom: 5px; }
+    .value { color: #374151; }
+    .footer { background: #374151; color: white; padding: 15px; text-align: center; border-radius: 0 0 8px 8px; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2 style="margin: 0;">🔔 New Pickup Request</h2>
+      <p style="margin: 5px 0 0 0; opacity: 0.9;">Sky Persia Recycling System</p>
+    </div>
+    <div class="content">
+      <div class="section">
+        <h3 style="margin-top: 0; color: #0ea5e9;">👤 Customer Information</h3>
+        <div class="label">Name</div>
+        <div class="value">${name}</div>
+        <div class="label" style="margin-top: 10px;">Phone</div>
+        <div class="value">${phone}</div>
+        <div class="label" style="margin-top: 10px;">Email</div>
+        <div class="value">${email}</div>
+        <div class="label" style="margin-top: 10px;">Address</div>
+        <div class="value">${address}</div>
+      </div>
+      
+      <div class="section">
+        <h3 style="margin-top: 0; color: #0ea5e9;">📦 Item Information</h3>
+        <div class="label">Category</div>
+        <div class="value">${categoryLabel}</div>
+        <div class="label" style="margin-top: 10px;">Description</div>
+        <div class="value" style="white-space: pre-wrap;">${description}</div>
+        <div style="margin-top: 10px; padding: 10px; background: #fef3c7; border-radius: 4px; color: #92400e;">
+          ${photos.length > 0 ? `📷 ${photos.length} photo(s) attached` : '📷 No photos attached'}
+        </div>
+      </div>
+      
+      <div style="background: #dbeafe; padding: 15px; border-radius: 6px; margin-top: 15px;">
+        <strong>⏰ Next Steps:</strong><br>
+        Please contact the customer during business hours.
+      </div>
+    </div>
+    <div class="footer">
+      This is an automated message<br>
+      Sky Persia - 731-1 Shimoyatsubayashi, Kawajima, Hiki District, Saitama 350-0122<br>
+      📞 049-297-1355 / 070-9151-1212
+    </div>
+  </div>
+</body>
+</html>
     `
 
-    // Prepare email options
-    const mailOptions: any = {
-      from: `"Sky Persia Recycling" <noreply@skypersia.com>`,
-      to: 'farshad.mehdizadeh20@gmail.com',
-      replyTo: email,
-      subject: emailSubject,
-      text: emailBody,
+    // Convert photos to attachments for Resend
+    const attachments = await Promise.all(
+      photos.map(async (photo, index) => {
+        const buffer = Buffer.from(await photo.arrayBuffer())
+        return {
+          filename: photo.name,
+          content: buffer
+        }
+      })
+    )
+
+    // Send email using Resend
+    try {
+      const { data, error } = await resend.emails.send({
+        from: 'Sky Persia Recycling <noreply@skypersia-recycling.apps.grok.bot>',
+        to: 'farshad.mehdizadeh20@gmail.com',
+        replyTo: email,
+        subject: emailSubject,
+        html: emailHtml,
+        attachments: attachments.length > 0 ? attachments : undefined
+      })
+
+      if (error) {
+        console.error('Resend error:', error)
+        return NextResponse.json(
+          { error: 'Failed to send email', details: error },
+          { status: 500 }
+        )
+      }
+
+      return NextResponse.json({ 
+        success: true,
+        message: 'Submission received and email sent successfully',
+        emailId: data?.id
+      })
+
+    } catch (emailError) {
+      console.error('Email sending error:', emailError)
+      return NextResponse.json(
+        { error: 'Failed to send email', details: String(emailError) },
+        { status: 500 }
+      )
     }
-
-    // Add photo attachment if present
-    if (photo) {
-      const buffer = Buffer.from(await photo.arrayBuffer())
-      mailOptions.attachments = [{
-        filename: photo.name,
-        content: buffer
-      }]
-    }
-
-    // Send email
-    // Note: This will fail without proper SMTP credentials
-    // For demo purposes, we'll just log the submission
-    console.log('Form submission received:', {
-      name,
-      phone,
-      email,
-      itemCategory: categoryLabel,
-      address,
-      hasPhoto: !!photo
-    })
-
-    // In a real production environment, you would uncomment this:
-    // await transporter.sendMail(mailOptions)
-
-    // For now, we'll simulate success
-    // You can set up proper email credentials or use a service like Resend, SendGrid, etc.
-    
-    return NextResponse.json({ 
-      success: true,
-      message: 'Submission received successfully' 
-    })
 
   } catch (error) {
     console.error('Submission error:', error)
     return NextResponse.json(
-      { error: 'Failed to process submission' },
+      { error: 'Failed to process submission', details: String(error) },
       { status: 500 }
     )
   }
