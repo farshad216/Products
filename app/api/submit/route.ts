@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { Resend } from 'resend'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
-
 export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
@@ -186,10 +184,12 @@ export async function POST(request: NextRequest) {
 
     // Send email using Resend
     try {
+      const resend = new Resend(process.env.RESEND_API_KEY)
+      
       const { data, error } = await resend.emails.send({
         from: 'Sky Persia Recycling <noreply@skypersia-recycling.apps.grok.bot>',
         to: 'farshad.mehdizadeh20@gmail.com',
-        replyTo: email,
+        reply_to: email,
         subject: emailSubject,
         html: emailHtml,
         attachments: attachments.length > 0 ? attachments : undefined
